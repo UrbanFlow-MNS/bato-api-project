@@ -1,0 +1,48 @@
+services:
+  bato-auth-database:
+    image: postgres:15
+    env_file:
+      - .env.prod.docker.auth.database
+    ports:
+      - "5433:5432"
+    volumes:
+      - bato-auth-database:/var/lib/postgresql/data
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: RABBIT_MQ
+    ports:
+      - "5672:5672"
+      - "15672:15672" # UI Management
+    env_file:
+      - .env.prod.rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway:
+    build: ./modules/gateway
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.prod.docker.gateway
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+  
+  auth:
+    build: ./modules/auth
+    ports:
+      - "3001:3001"
+    env_file:
+      - .env.prod.docker.auth.database
+    depends_on:
+      bato-auth-database:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  bato-auth-database:
